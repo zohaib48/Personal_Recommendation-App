@@ -6,7 +6,7 @@ services:
     plan: free
     autoDeploy: true
     healthCheckPath: /health
-    buildCommand: npm ci && npm run build:admin
+    buildCommand: npm ci --include=dev && npm run build:admin
     startCommand: npm run start:render
     envVars:
       - key: NODE_ENV
