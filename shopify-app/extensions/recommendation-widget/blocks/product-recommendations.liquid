@@ -1,0 +1,65 @@
+{{ 'widget.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'widget.js' | asset_url }}" defer></script>
+
+<div
+  data-ai-recommendations
+  data-merchant="{{ shop.permanent_domain }}"
+  data-product-id="{{ product.id }}"
+  data-customer-id="{{ customer.id }}"
+  data-location="product_page"
+  data-geo-location="{{ localization.country.iso_code }}"
+  data-layout="{{ block.settings.layout }}"
+  data-limit="{{ block.settings.items }}"
+  data-title="{{ block.settings.title }}"
+  data-subtitle="{{ block.settings.subtitle }}"
+  data-primary-color="{{ block.settings.primary_color }}"
+  data-api-base="/apps/recommendations"
+></div>
+
+{% schema %}
+{
+  "name": "AI Recs Product",
+  "target": "section",
+  "templates": ["product"],
+  "settings": [
+    {
+      "type": "text",
+      "id": "title",
+      "label": "Widget title",
+      "default": "You Might Also Like"
+    },
+    {
+      "type": "text",
+      "id": "subtitle",
+      "label": "Widget subtitle",
+      "default": "Recommended based on shopper behavior"
+    },
+    {
+      "type": "select",
+      "id": "layout",
+      "label": "Layout",
+      "options": [
+        { "value": "grid", "label": "Grid" },
+        { "value": "carousel", "label": "Carousel" },
+        { "value": "list", "label": "List" }
+      ],
+      "default": "grid"
+    },
+    {
+      "type": "range",
+      "id": "items",
+      "label": "Number of items",
+      "min": 2,
+      "max": 8,
+      "step": 1,
+      "default": 4
+    },
+    {
+      "type": "color",
+      "id": "primary_color",
+      "label": "Primary color",
+      "default": "#5c6ac4"
+    }
+  ]
+}
+{% endschema %}

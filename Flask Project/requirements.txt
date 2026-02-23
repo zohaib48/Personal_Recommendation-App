@@ -1,0 +1,27 @@
+# Flask API for Shopify AI Recommendation System
+# MINIMAL DEPLOYMENT - No TensorFlow required
+
+# Web Framework
+flask==3.0.0
+flask-cors==4.0.0
+
+# Vector Search (REQUIRED)
+faiss-cpu>=1.12.0
+
+# Data Processing
+pandas==2.2.3
+# numpy 2.1+ requires Python 3.10 - pin to 2.0.2 for Python 3.9 compatibility
+numpy>=2.1.0
+
+# ML Classification
+scikit-learn>=1.3.0
+
+# Environment
+python-dotenv==1.0.0
+
+# Testing
+pytest==7.4.3
+pytest-cov==4.1.0
+
+# Production Server
+gunicorn==21.2.0

@@ -1,0 +1,60 @@
+{
+    "name": "shopify-recommendation-app",
+    "version": "1.0.0",
+    "description": "Shopify AI Recommendation System - Node.js Orchestrator",
+    "main": "server/index.js",
+    "scripts": {
+        "start": "node start-app.js",
+        "start:all": "node start-app.js",
+        "start:render": "bash ./scripts/start-render.sh",
+        "server": "node server/index.js",
+        "dev": "nodemon server/index.js",
+        "dev:admin": "remix dev",
+        "build:admin": "remix build",
+        "start:admin": "remix-serve build",
+        "test": "vitest run tests/unit tests/integration",
+        "test:watch": "vitest",
+        "test:e2e": "playwright test tests/e2e",
+        "test:visual": "playwright test tests/visual"
+    },
+    "keywords": [
+        "shopify",
+        "recommendations",
+        "ai",
+        "ecommerce"
+    ],
+    "author": "",
+    "license": "MIT",
+    "dependencies": {
+        "@remix-run/node": "^2.7.1",
+        "@remix-run/react": "^2.7.1",
+        "@remix-run/serve": "^2.7.1",
+        "@shopify/polaris": "^12.0.0",
+        "@shopify/polaris-icons": "^8.0.0",
+        "@shopify/shopify-api": "^10.0.0",
+        "axios": "^1.6.5",
+        "dotenv": "^16.4.1",
+        "express": "^4.18.2",
+        "http-proxy-middleware": "^3.0.0",
+        "mongoose": "^8.1.1",
+        "node-cron": "^3.0.3",
+        "cookie-parser": "^1.4.6",
+        "cors": "^2.8.5",
+        "react": "^18.2.0",
+        "react-dom": "^18.2.0",
+        "recharts": "^2.8.0"
+    },
+    "devDependencies": {
+        "@playwright/test": "^1.41.2",
+        "@remix-run/dev": "^2.7.1",
+        "@testing-library/jest-dom": "^6.2.0",
+        "@testing-library/react": "^14.1.2",
+        "@types/node": "^20.11.0",
+        "@types/react": "^18.2.55",
+        "@types/react-dom": "^18.2.18",
+        "eslint": "^8.57.0",
+        "nodemon": "^3.0.3",
+        "prettier": "^3.2.5",
+        "vitest": "^1.3.1"
+    }
+}

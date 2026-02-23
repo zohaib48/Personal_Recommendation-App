@@ -1,0 +1,63 @@
+{{ 'widget.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'widget.js' | asset_url }}" defer></script>
+
+<div
+  data-ai-recommendations
+  data-merchant="{{ shop.permanent_domain }}"
+  data-customer-id="{{ customer.id }}"
+  data-location="homepage"
+  data-geo-location="{{ localization.country.iso_code }}"
+  data-layout="{{ block.settings.layout }}"
+  data-limit="{{ block.settings.items }}"
+  data-title="{{ block.settings.title }}"
+  data-subtitle="{{ block.settings.subtitle }}"
+  data-primary-color="{{ block.settings.primary_color }}"
+  data-api-base="/apps/recommendations"
+></div>
+
+{% schema %}
+{
+  "name": "AI Recs Homepage",
+  "target": "section",
+  "templates": ["index"],
+  "settings": [
+    {
+      "type": "text",
+      "id": "title",
+      "label": "Widget title",
+      "default": "Recommended For You"
+    },
+    {
+      "type": "text",
+      "id": "subtitle",
+      "label": "Widget subtitle",
+      "default": "Based on recent browsing"
+    },
+    {
+      "type": "select",
+      "id": "layout",
+      "label": "Layout",
+      "options": [
+        { "value": "grid", "label": "Grid" },
+        { "value": "carousel", "label": "Carousel" }
+      ],
+      "default": "carousel"
+    },
+    {
+      "type": "range",
+      "id": "items",
+      "label": "Number of items",
+      "min": 4,
+      "max": 12,
+      "step": 1,
+      "default": 6
+    },
+    {
+      "type": "color",
+      "id": "primary_color",
+      "label": "Primary color",
+      "default": "#5c6ac4"
+    }
+  ]
+}
+{% endschema %}

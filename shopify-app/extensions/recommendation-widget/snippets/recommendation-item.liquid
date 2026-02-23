@@ -1,0 +1,8 @@
+<div class="ai-rec-item">
+  {{ product.featured_image | image_url: width: 240 | image_tag: alt: product.title, width: 120, height: 120 }}
+  <div>
+    <p>{{ product.title }}</p>
+    <p>{{ product.price | money }}</p>
+    <a href="{{ product.url }}">Shop</a>
+  </div>
+</div>

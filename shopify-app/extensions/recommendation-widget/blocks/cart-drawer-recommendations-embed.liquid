@@ -1,0 +1,69 @@
+{{ 'widget.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'widget.js' | asset_url }}" defer></script>
+
+<div
+  hidden
+  data-ai-recs-cart-drawer-config
+  data-enabled="{{ block.settings.enabled }}"
+  data-merchant="{{ shop.permanent_domain }}"
+  data-customer-id="{{ customer.id }}"
+  data-geo-location="{{ localization.country.iso_code }}"
+  data-layout="{{ block.settings.layout }}"
+  data-limit="{{ block.settings.items }}"
+  data-title="{{ block.settings.title }}"
+  data-subtitle="{{ block.settings.subtitle }}"
+  data-primary-color="{{ block.settings.primary_color }}"
+  data-api-base="/apps/recommendations"
+></div>
+
+{% schema %}
+{
+  "name": "AI Recs Cart Drawer",
+  "target": "body",
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "enabled",
+      "label": "Enable cart drawer recommendations",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "title",
+      "label": "Widget title",
+      "default": "Complete Your Order"
+    },
+    {
+      "type": "text",
+      "id": "subtitle",
+      "label": "Widget subtitle",
+      "default": "Picked for the items in your cart"
+    },
+    {
+      "type": "select",
+      "id": "layout",
+      "label": "Layout",
+      "options": [
+        { "value": "list", "label": "List" },
+        { "value": "carousel", "label": "Carousel" }
+      ],
+      "default": "list"
+    },
+    {
+      "type": "range",
+      "id": "items",
+      "label": "Number of items",
+      "min": 2,
+      "max": 6,
+      "step": 1,
+      "default": 3
+    },
+    {
+      "type": "color",
+      "id": "primary_color",
+      "label": "Primary color",
+      "default": "#5c6ac4"
+    }
+  ]
+}
+{% endschema %}

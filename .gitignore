@@ -1,0 +1,38 @@
+# OS / editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Python caches / virtualenvs
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/.pytest_cache/
+**/.venv/
+.venv/
+
+# Node / frontend build artifacts
+**/node_modules/
+**/.cache/
+**/coverage/
+**/test-results/
+shopify-app/build/
+shopify-app/public/build/
+shopify-app/.shopify/
+shopify-app/tunnel.log
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Optional local model training artifacts (keep deployable model files tracked via LFS)
+Flask Project/model/checkpoints/

@@ -1,0 +1,40 @@
+name: Deploy Flask API to Koyeb
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "Flask Project/**"
+      - ".github/workflows/deploy-flask-koyeb.yml"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure Koyeb CLI
+        uses: koyeb-community/koyeb-actions@v2
+        with:
+          api_token: ${{ secrets.KOYEB_API_TOKEN }}
+
+      - name: Deploy Flask web service
+        uses: koyeb/action-git-deploy@v1
+        with:
+          app-name: shopify-recommender
+          service-name: flask-api
+          service-type: web
+          service-instance-type: nano
+          service-regions: was
+          service-ports: "5001:http"
+          service-routes: "/:5001"
+          service-checks: "5001:http:/health"
+          git-builder: buildpack
+          git-workdir: "Flask Project"
+          git-branch: ${{ github.ref_name }}
+          git-build-command: "pip install -r requirements.txt"
+          git-run-command: "gunicorn --bind 0.0.0.0:5001 api.app:app"
+          service-env: "FLASK_HOST=0.0.0.0,FLASK_PORT=5001,FLASK_DEBUG=false"

@@ -1,0 +1,6 @@
+# Store large ML artifacts in Git LFS
+"Flask Project/model/*.faiss" filter=lfs diff=lfs merge=lfs -text
+"Flask Project/model/*.npy" filter=lfs diff=lfs merge=lfs -text
+"Flask Project/model/*.h5" filter=lfs diff=lfs merge=lfs -text
+"Flask Project/model/*.pkl" filter=lfs diff=lfs merge=lfs -text
+"Flask Project/model/*.json" filter=lfs diff=lfs merge=lfs -text
