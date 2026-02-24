@@ -2,7 +2,7 @@
 
 client_id = "74e041d2a01b8fd48c18e1f1b0b2f920"
 name = "AI Recommendations"
-application_url = "https://titten-trained-october-believes.trycloudflare.com"
+application_url = "https://shopify-recommender-express-production.up.railway.app"
 
 embedded = false
 
@@ -16,7 +16,7 @@ optional_scopes = []
 use_legacy_install_flow = false
 
 [auth]
-redirect_urls = [ "https://titten-trained-october-believes.trycloudflare.com/auth/callback" ]
+redirect_urls = [ "https://shopify-recommender-express-production.up.railway.app/auth/callback" ]
 
 [webhooks]
 api_version = "2024-01"
@@ -25,7 +25,7 @@ api_version = "2024-01"
 embedded = false
 
 [app_proxy]
-url = "https://titten-trained-october-believes.trycloudflare.com"
+url = "https://shopify-recommender-express-production.up.railway.app"
 subpath = "recommendations"
 prefix = "apps"
 
