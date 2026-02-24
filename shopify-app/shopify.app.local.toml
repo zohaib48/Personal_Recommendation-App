@@ -2,30 +2,30 @@
 
 client_id = "74e041d2a01b8fd48c18e1f1b0b2f920"
 name = "AI Recommendations"
-application_url = "https://plastic-keyword-springs-seconds.trycloudflare.com"
+application_url = "https://eng-adjustment-tax-ranch.trycloudflare.com"
 
-embedded = false
+embedded = true
 
 [build]
 automatically_update_urls_on_dev = true
 dev_store_url = "zohaib-dev-2.myshopify.com"
 
 [access_scopes]
-scopes = "read_orders,read_products,write_products"
+scopes = "read_orders,read_products,write_products,write_app_proxy"
 optional_scopes = []
 use_legacy_install_flow = false
 
 [auth]
-redirect_urls = [ "https://plastic-keyword-springs-seconds.trycloudflare.com/auth/callback" ]
+redirect_urls = [ "https://eng-adjustment-tax-ranch.trycloudflare.com/auth/callback" ]
 
 [webhooks]
-api_version = "2024-01"
+api_version = "2026-01"
 
 [pos]
 embedded = false
 
 [app_proxy]
-url = "https://plastic-keyword-springs-seconds.trycloudflare.com"
-subpath = "recommendations"
+url = "https://eng-adjustment-tax-ranch.trycloudflare.com"
+subpath = "recommendations-local"
 prefix = "apps"
 

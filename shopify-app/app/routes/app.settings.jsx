@@ -1,8 +1,6 @@
 import { useState, useCallback, useRef } from "react";
 import {
   Banner,
-  Button,
-  ButtonGroup,
   Card,
   Checkbox,
 
@@ -12,7 +10,6 @@ import {
   RangeSlider,
   Select,
   Text,
-  TextField,
 } from "@shopify/polaris";
 import { json } from "@remix-run/node";
 import { useLoaderData, useLocation } from "@remix-run/react";
@@ -292,6 +289,33 @@ export default function SettingsPage() {
                   AI Autopilot automatically configures best-practice settings for maximum conversion.
                 </Text>
               ) : null}
+              <Text as="p" variant="bodySm" tone="subdued">
+                Example: Use AI Autopilot when launching quickly. Switch to Manual when you want stricter rules like
+                tighter price bands or stronger cart influence.
+              </Text>
+            </FormLayout>
+          </Card>
+        </Layout.Section>
+
+        <Layout.Section>
+          <Card sectioned>
+            <FormLayout>
+              <Text as="h2" variant="headingMd">
+                Where Recommendations Appear
+              </Text>
+              <Text as="p" variant="bodyMd" tone="subdued">
+                Product page: prioritizes similar items to the current product and optional same-category filtering.
+              </Text>
+              <Text as="p" variant="bodyMd" tone="subdued">
+                Homepage: blends browsing and cart history to surface broad discovery recommendations.
+              </Text>
+              <Text as="p" variant="bodyMd" tone="subdued">
+                Cart and cart drawer: focuses on add-on and cross-sell items based on cart contents.
+              </Text>
+              <Text as="p" variant="bodySm" tone="subdued">
+                To place blocks: Online Store - Themes - Customize - Add block - Apps - AI Recs Product / AI Recs Homepage /
+                AI Recs Cart. For cart drawer, enable the app embed "AI Recs Cart Drawer" in App embeds.
+              </Text>
             </FormLayout>
           </Card>
         </Layout.Section>
@@ -331,6 +355,9 @@ export default function SettingsPage() {
                 onChange={setPriceProxEnabled}
                 disabled={isAuto}
               />
+              <Text as="p" variant="bodySm" tone="subdued">
+                Example: +/-20% keeps suggestions near price expectations; +/-45% allows wider upsell/downsell range.
+              </Text>
               {priceProxEnabled ? (
                 <RangeSlider
                   label={"Price range: \u00B1" + priceProxRange + "%"}
@@ -349,6 +376,9 @@ export default function SettingsPage() {
                 onChange={setTagBoostEnabled}
                 disabled={isAuto}
               />
+              <Text as="p" variant="bodySm" tone="subdued">
+                Example: If your products use rich tags (vegan, winter, premium), increase this to improve semantic matching.
+              </Text>
               {tagBoostEnabled ? (
                 <RangeSlider
                   label={"Tag boost weight: " + tagBoostWeight + "%"}
@@ -367,18 +397,27 @@ export default function SettingsPage() {
                 onChange={setSameCategoryOnly}
                 disabled={isAuto}
               />
+              <Text as="p" variant="bodySm" tone="subdued">
+                ON keeps recommendations tightly related (beauty -&gt; beauty). OFF allows broader cross-category discovery.
+              </Text>
               <Checkbox
                 label="Location-based filtering"
                 checked={locationEnabled}
                 onChange={setLocationEnabled}
                 disabled={isAuto}
               />
+              <Text as="p" variant="bodySm" tone="subdued">
+                Uses shopper location hints to suppress climate-mismatched products where possible.
+              </Text>
               <Checkbox
                 label="Ethical preferences"
                 checked={ethicalEnabled}
                 onChange={setEthicalEnabled}
                 disabled={isAuto}
               />
+              <Text as="p" variant="bodySm" tone="subdued">
+                Example: Enable this if your catalog uses clear vegan/sustainable tags and you want preference-aware ranking.
+              </Text>
               {ethicalEnabled ? (
                 <FormLayout.Group>
                   <Checkbox label="Vegan / cruelty-free" checked={vegan} onChange={setVegan} disabled={isAuto} />
@@ -391,12 +430,18 @@ export default function SettingsPage() {
                 onChange={setExcludePurchased}
                 disabled={isAuto}
               />
+              <Text as="p" variant="bodySm" tone="subdued">
+                Usually ON for consumables/add-ons to avoid repeating the same SKU after checkout.
+              </Text>
               <Checkbox
                 label="Exclude previously viewed products"
                 checked={excludeViewed}
                 onChange={setExcludeViewed}
                 disabled={isAuto}
               />
+              <Text as="p" variant="bodySm" tone="subdued">
+                Turn ON for novelty. Keep OFF if reminding shoppers of recently viewed items helps conversion.
+              </Text>
             </FormLayout>
           </Card>
         </Layout.Section>
@@ -423,6 +468,9 @@ export default function SettingsPage() {
                 output
                 disabled={isAuto}
               />
+              <Text as="p" variant="bodySm" tone="subdued">
+                Higher value makes recommendations favor proven buyer intent.
+              </Text>
               <RangeSlider
                 label={"Cart items: " + wCart + "%"}
                 value={wCart}
@@ -433,6 +481,9 @@ export default function SettingsPage() {
                 output
                 disabled={isAuto}
               />
+              <Text as="p" variant="bodySm" tone="subdued">
+                Raise this when you want stronger cross-sell behavior from active cart contents.
+              </Text>
               <RangeSlider
                 label={"Current product: " + wCurrent + "%"}
                 value={wCurrent}
@@ -443,6 +494,9 @@ export default function SettingsPage() {
                 output
                 disabled={isAuto}
               />
+              <Text as="p" variant="bodySm" tone="subdued">
+                Keeps recommendations anchored to what the shopper is currently viewing.
+              </Text>
               <RangeSlider
                 label={"Browsing history: " + wBrowse + "%"}
                 value={wBrowse}
@@ -453,6 +507,9 @@ export default function SettingsPage() {
                 output
                 disabled={isAuto}
               />
+              <Text as="p" variant="bodySm" tone="subdued">
+                Good for discovery journeys; reduce this if browsing is noisy and purchases should dominate.
+              </Text>
             </FormLayout>
           </Card>
         </Layout.Section>

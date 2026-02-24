@@ -30,6 +30,12 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const ADMIN_PORT = process.env.ADMIN_PORT || 3001;
 const ADMIN_HOST = process.env.ADMIN_HOST || "127.0.0.1";
+const jsonParser = express.json();
+const urlEncodedParser = express.urlencoded({ extended: true });
+
+function isValidShopDomain(shop) {
+    return typeof shop === 'string' && /^[a-z0-9][a-z0-9-]*\.myshopify\.com$/i.test(shop);
+}
 
 // =============================================================================
 // MIDDLEWARE
@@ -43,8 +49,39 @@ app.use(cors({
     maxAge: 86400,               // cache preflight for 24h
 }));
 app.options('*', cors());       // handle all OPTIONS preflight requests
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use((req, res, next) => {
+    // Webhooks need raw request bodies for HMAC verification.
+    if (req.path.startsWith('/webhooks/')) return next();
+    return jsonParser(req, res, next);
+});
+app.use((req, res, next) => {
+    if (req.path.startsWith('/webhooks/')) return next();
+    return urlEncodedParser(req, res, next);
+});
+
+// Some storefront proxy setups forward the full `/apps/<subpath>/...` path.
+// Normalize those requests so API handlers remain under `/api/...`.
+app.use((req, res, next) => {
+    const rewritten = req.url.replace(/^\/apps\/recommendations(?:-local)?(?=\/|$)/, '');
+    if (rewritten !== req.url) {
+        req.url = rewritten || '/';
+    }
+    return next();
+});
+
+app.use((req, res, next) => {
+    const isAdminSurface = req.path === '/app' || req.path.startsWith('/app/');
+    if (!isAdminSurface) return next();
+
+    const shop = String(req.query?.shop || '').trim().toLowerCase();
+    const frameAncestors = ['https://admin.shopify.com', 'https://*.myshopify.com'];
+    if (isValidShopDomain(shop)) {
+        frameAncestors.push(`https://${shop}`);
+    }
+
+    res.setHeader('Content-Security-Policy', `frame-ancestors ${frameAncestors.join(' ')};`);
+    return next();
+});
 
 // lightweight handlers to avoid noisy 404s (must come before proxy)
 app.get('/app/logo.png', (req, res) => res.sendStatus(204));
@@ -131,6 +168,43 @@ app.get('/health', (req, res) => {
         service: 'shopify-recommendation-orchestrator',
         timestamp: new Date().toISOString(),
     });
+});
+
+app.get('/legal/privacy', (req, res) => {
+    res.type('html').send(`<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Privacy Policy</title></head>
+<body style="font-family: Arial, sans-serif; max-width: 820px; margin: 40px auto; line-height: 1.5;">
+<h1>Privacy Policy</h1>
+<p>This app processes Shopify store data and recommendation events to deliver personalized product recommendations.</p>
+<p>Data handled may include product catalog details, shop identifier, and recommendation interaction events (impression/click/add-to-cart/purchase).</p>
+<p>We do not sell personal data. Data is used to provide, maintain, and improve recommendation quality.</p>
+<p>For data access or deletion requests, contact support using the page below. GDPR/CCPA webhook requests are handled at our registered endpoints.</p>
+<p>Last updated: 2026-02-24</p>
+</body></html>`);
+});
+
+app.get('/legal/terms', (req, res) => {
+    res.type('html').send(`<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Terms of Service</title></head>
+<body style="font-family: Arial, sans-serif; max-width: 820px; margin: 40px auto; line-height: 1.5;">
+<h1>Terms of Service</h1>
+<p>By installing and using this app, you agree to allow secure access to store data required to generate recommendations.</p>
+<p>You are responsible for configuring recommendation behavior and ensuring your store content complies with Shopify policies.</p>
+<p>Service may change over time. We may suspend access for abuse, fraud, or policy violations.</p>
+<p>Last updated: 2026-02-24</p>
+</body></html>`);
+});
+
+app.get('/support', (req, res) => {
+    const supportEmail = process.env.SUPPORT_EMAIL || 'support@example.com';
+    res.type('html').send(`<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Support</title></head>
+<body style="font-family: Arial, sans-serif; max-width: 820px; margin: 40px auto; line-height: 1.5;">
+<h1>Support</h1>
+<p>Need help with setup, recommendations, or billing?</p>
+<p>Email: <a href="mailto:${supportEmail}">${supportEmail}</a></p>
+<p>Response target: 1 business day.</p>
+</body></html>`);
 });
 
 // Auth routes
@@ -260,6 +334,10 @@ async function autoSyncProducts() {
 
 async function startServer() {
     try {
+        if (process.env.NODE_ENV === 'production' && !process.env.TOKEN_ENCRYPTION_KEY) {
+            throw new Error('TOKEN_ENCRYPTION_KEY is required in production');
+        }
+
         // 1. Connect to MongoDB
         await connectDB();
 

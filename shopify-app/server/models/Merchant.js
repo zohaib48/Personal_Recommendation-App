@@ -8,6 +8,7 @@
  */
 
 const mongoose = require('mongoose');
+const { encryptToken, decryptToken, isEncryptedToken } = require('../utils/tokenCrypto');
 
 const merchantSchema = new mongoose.Schema({
     shop: {
@@ -18,6 +19,8 @@ const merchantSchema = new mongoose.Schema({
     accessToken: {
         type: String,
         required: true,
+        set: encryptToken,
+        get: decryptToken,
     },
     scope: {
         type: String,
@@ -41,5 +44,13 @@ const merchantSchema = new mongoose.Schema({
 
 // Index for faster queries
 merchantSchema.index({ shop: 1, isActive: 1 });
+
+merchantSchema.pre('save', function ensureEncryptedToken(next) {
+    const raw = this.get('accessToken', null, { getters: false });
+    if (raw && !isEncryptedToken(raw)) {
+        this.set('accessToken', raw);
+    }
+    next();
+});
 
 module.exports = mongoose.model('Merchant', merchantSchema);

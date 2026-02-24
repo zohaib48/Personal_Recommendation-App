@@ -7,7 +7,42 @@
  * - Error handling and rate limiting
  */
 
-const axios = require('axios');
+const { shopifyGraphqlRequest } = require('../utils/shopifyGraphql');
+
+const PRODUCTS_QUERY = `
+query FetchProducts($first: Int!, $after: String) {
+  products(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        title
+        productType
+        tags
+        vendor
+        handle
+        featuredImage {
+          url
+        }
+        variants(first: 100) {
+          edges {
+            node {
+              id
+              title
+              price
+              compareAtPrice
+              sku
+            }
+          }
+        }
+      }
+    }
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+  }
+}
+`;
 
 class ShopifyService {
     /**
@@ -34,50 +69,33 @@ class ShopifyService {
         try {
             const products = [];
             let hasNextPage = true;
-            let pageInfo = null;
+            let cursor = null;
 
             while (hasNextPage) {
-                const url = `https://${shop}/admin/api/2024-01/products.json`;
-                const params = {
-                    limit: 250, // Max allowed by Shopify
-                };
-
-                if (pageInfo) {
-                    params.page_info = pageInfo;
-                }
-
-                const response = await axios.get(url, {
-                    headers: {
-                        'X-Shopify-Access-Token': accessToken,
+                const data = await shopifyGraphqlRequest({
+                    shop,
+                    accessToken,
+                    query: PRODUCTS_QUERY,
+                    variables: {
+                        first: 250,
+                        after: cursor,
                     },
-                    params,
                 });
 
-                const fetchedProducts = response.data.products || [];
-                products.push(...fetchedProducts);
+                const connection = data?.products;
+                const edges = Array.isArray(connection?.edges) ? connection.edges : [];
+                products.push(...edges.map((edge) => edge.node));
 
-                // Check for pagination
-                const linkHeader = response.headers.link;
-                if (linkHeader && linkHeader.includes('rel="next"')) {
-                    // Extract page_info from link header
-                    const nextMatch = linkHeader.match(/<([^>]+)>;\s*rel="next"/);
-                    if (nextMatch) {
-                        const nextUrl = new URL(nextMatch[1]);
-                        pageInfo = nextUrl.searchParams.get('page_info');
-                    } else {
-                        hasNextPage = false;
-                    }
-                } else {
-                    hasNextPage = false;
+                hasNextPage = Boolean(connection?.pageInfo?.hasNextPage);
+                cursor = connection?.pageInfo?.endCursor || null;
+
+                if (hasNextPage) {
+                    await this._delay(200);
                 }
-
-                // Rate limiting delay (Shopify allows 2 requests/second)
-                await this._delay(500);
             }
 
-            console.log(`✅ Fetched ${products.length} products from ${shop}`);
+            console.log(`✅ Fetched ${products.length} products from ${shop} via GraphQL`);
             return products;
-
         } catch (error) {
             console.error(`❌ Error fetching products from ${shop}:`, error.message);
             throw error;
@@ -90,14 +108,47 @@ class ShopifyService {
      * @returns {Object} Transformed product
      */
     static transformProduct(shopifyProduct) {
+        const rawTags = shopifyProduct?.tags;
+        const tags = Array.isArray(rawTags)
+            ? rawTags.map((t) => String(t).trim()).filter(Boolean)
+            : String(rawTags || '')
+                .split(',')
+                .map((t) => t.trim())
+                .filter(Boolean);
+
+        const graphQlVariants = Array.isArray(shopifyProduct?.variants?.edges)
+            ? shopifyProduct.variants.edges
+                .map((edge) => edge?.node)
+                .filter(Boolean)
+                .map((variant) => ({
+                    id: variant.id,
+                    title: variant.title || '',
+                    price: variant.price || '0',
+                    compare_at_price: variant.compareAtPrice || null,
+                    sku: variant.sku || '',
+                }))
+            : [];
+
+        const variants = graphQlVariants.length > 0
+            ? graphQlVariants
+            : (Array.isArray(shopifyProduct?.variants) ? shopifyProduct.variants : []);
+
+        const firstVariant = variants[0] || {};
+        const productType = shopifyProduct.productType || shopifyProduct.product_type || '';
+        const image =
+            shopifyProduct?.featuredImage?.url ||
+            shopifyProduct?.image?.src ||
+            shopifyProduct?.images?.[0]?.src ||
+            '';
+
         return {
             shopifyProductId: this.normalizeProductId(shopifyProduct.id),
             title: shopifyProduct.title || '',
-            productType: shopifyProduct.product_type || '',
-            tags: shopifyProduct.tags ? shopifyProduct.tags.split(',').map(t => t.trim()) : [],
-            price: shopifyProduct.variants?.[0]?.price || '0',
-            image: shopifyProduct.image?.src || shopifyProduct.images?.[0]?.src || '',
-            variants: shopifyProduct.variants || [],
+            productType,
+            tags,
+            price: firstVariant.price || '0',
+            image,
+            variants,
             vendor: shopifyProduct.vendor || '',
             handle: shopifyProduct.handle || '',
         };

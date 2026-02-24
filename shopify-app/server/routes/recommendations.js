@@ -12,6 +12,7 @@
 
 const express = require('express');
 const router = express.Router();
+const crypto = require('crypto');
 const Product = require('../models/Product');
 const Merchant = require('../models/Merchant');
 const RecommendationEvent = require('../models/RecommendationEvent');
@@ -28,6 +29,49 @@ function toGid(id) {
     return s.startsWith('gid://') ? s : `gid://shopify/Product/${s}`;
 }
 
+function buildAppProxySignatureMessage(query) {
+    const pairs = Object.keys(query || {})
+        .filter((key) => key !== 'signature')
+        .sort()
+        .map((key) => {
+            const rawValue = query[key];
+            const values = Array.isArray(rawValue) ? rawValue : [rawValue];
+            return `${key}=${values.map((v) => String(v ?? '')).join(',')}`;
+        });
+    return pairs.join('');
+}
+
+function isValidAppProxySignature(query) {
+    const signature = String(query?.signature || '').trim().toLowerCase();
+    const secret = process.env.SHOPIFY_API_SECRET;
+    if (!signature || !secret) return false;
+
+    const message = buildAppProxySignatureMessage(query);
+    const digest = crypto
+        .createHmac('sha256', secret)
+        .update(message, 'utf8')
+        .digest('hex')
+        .toLowerCase();
+
+    const expected = Buffer.from(digest, 'utf8');
+    const received = Buffer.from(signature, 'utf8');
+    return expected.length === received.length && crypto.timingSafeEqual(expected, received);
+}
+
+function enforceAppProxySignature(req, res, next) {
+    const shouldEnforce = process.env.NODE_ENV === 'production' || Boolean(req.query?.signature);
+    if (!shouldEnforce) return next();
+
+    if (!isValidAppProxySignature(req.query)) {
+        return res.status(401).json({
+            success: false,
+            error: 'Invalid app proxy signature',
+        });
+    }
+
+    return next();
+}
+
 /**
  * GET /api/recommend
  * Get product recommendations
@@ -39,9 +83,19 @@ function toGid(id) {
  * - location: user location (optional)
  * - k: number of recommendations (optional, default 10)
  */
-router.get('/api/recommend', async (req, res) => {
+router.get('/api/recommend', enforceAppProxySignature, async (req, res) => {
     try {
-        const { shop, productId, customerId, location, geoLocation, preferences, history, cart, k = 10 } = req.query;
+        const {
+            productId,
+            customerId,
+            location,
+            geoLocation,
+            preferences,
+            history,
+            cart,
+            k = 10,
+        } = req.query;
+        const shop = req.query.shop || req.headers['x-shopify-shop-domain'];
 
         // Clean up history - extract "Live" history from request (localStorage from guest)
         let liveHistory = [];
@@ -81,8 +135,6 @@ router.get('/api/recommend', async (req, res) => {
 
         // Get user history if customerId provided
         let userHistory = { viewed: [], added_to_cart: [], purchased: [] };
-
-        console.log("🚀 ~ router.get ~ customerId:", customerId)
 
         // 2. Merge with "Live" history & Active Cart
         if (liveHistory.length > 0) {
@@ -213,9 +265,10 @@ router.get('/api/recommend', async (req, res) => {
  * - shop: merchant shop domain
  * - k: number of products (optional, default 6)
  */
-router.get('/api/popular', async (req, res) => {
+router.get('/api/popular', enforceAppProxySignature, async (req, res) => {
     try {
-        const { shop, customerId, geoLocation, preferences, k = 6 } = req.query;
+        const { geoLocation, preferences, k = 6 } = req.query;
+        const shop = req.query.shop || req.headers['x-shopify-shop-domain'];
 
         if (!shop) {
             return res.status(400).json({
@@ -283,7 +336,7 @@ router.get('/api/popular', async (req, res) => {
  * POST /api/track/event
  * Track recommendation events for analytics
  */
-router.post('/api/track/event', express.json(), async (req, res) => {
+router.post('/api/track/event', enforceAppProxySignature, express.json(), async (req, res) => {
     try {
         const {
             event_type,

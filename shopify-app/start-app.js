@@ -25,6 +25,7 @@ const CONFIG = {
   envPath: join(__dirname, ".env"),
   flaskPath: join(__dirname, "..", "Flask Project"),
   urlWaitTimeout: 30000,
+  allowProdDeploy: process.env.ALLOW_PROD_DEPLOY === "true",
 };
 
 const FLAGS = new Set(process.argv.slice(2));
@@ -176,6 +177,14 @@ class ShopifyAppLauncher {
   async start() {
     try {
       console.log("Starting Shopify app automation...\n");
+
+      const configFile = basename(CONFIG.tomlPath);
+      if (configFile.includes("production") && !CONFIG.allowProdDeploy) {
+        throw new Error(
+          "Refusing to run with production Shopify config. Use shopify.app.local.toml or set ALLOW_PROD_DEPLOY=true."
+        );
+      }
+      console.log(`Using Shopify config file: ${configFile}`);
 
       await this.killPort(CONFIG.nodePort);
       await this.killPort(CONFIG.adminPort);

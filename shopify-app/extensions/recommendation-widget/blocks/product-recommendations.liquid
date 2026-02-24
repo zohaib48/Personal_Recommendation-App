@@ -13,7 +13,7 @@
   data-title="{{ block.settings.title }}"
   data-subtitle="{{ block.settings.subtitle }}"
   data-primary-color="{{ block.settings.primary_color }}"
-  data-api-base="/apps/recommendations"
+  data-api-base="{{ block.settings.api_base }}"
 ></div>
 
 {% schema %}
@@ -35,15 +35,21 @@
       "default": "Recommended based on shopper behavior"
     },
     {
+      "type": "text",
+      "id": "api_base",
+      "label": "API base path",
+      "default": "/apps/recommendations",
+      "info": "Use /apps/recommendations for production. Use a different subpath only if you run a separate dev app."
+    },
+    {
       "type": "select",
       "id": "layout",
       "label": "Layout",
       "options": [
-        { "value": "grid", "label": "Grid" },
         { "value": "carousel", "label": "Carousel" },
         { "value": "list", "label": "List" }
       ],
-      "default": "grid"
+      "default": "carousel"
     },
     {
       "type": "range",

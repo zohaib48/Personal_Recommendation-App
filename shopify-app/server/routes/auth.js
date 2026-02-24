@@ -1,17 +1,74 @@
 /**
  * Authentication Routes - Shopify OAuth Flow
- * 
+ *
  * Handles:
  * - OAuth initiation
  * - OAuth callback
  * - Installation flow
  */
 
+const crypto = require('crypto');
 const express = require('express');
+const axios = require('axios');
 const router = express.Router();
 const Merchant = require('../models/Merchant');
 const SyncService = require('../services/syncService');
 const WebhookService = require('../services/webhookService');
+
+const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
+const oauthStateStore = new Map();
+
+function isValidShopDomain(shop) {
+    return typeof shop === 'string' && /^[a-z0-9][a-z0-9-]*\.myshopify\.com$/i.test(shop);
+}
+
+function buildAuthHmacMessage(query) {
+    const filtered = {};
+    Object.keys(query || {}).forEach((key) => {
+        if (key === 'hmac' || key === 'signature') return;
+        const value = query[key];
+        if (Array.isArray(value)) {
+            filtered[key] = value.join(',');
+        } else {
+            filtered[key] = String(value);
+        }
+    });
+
+    return Object.keys(filtered)
+        .sort()
+        .map((key) => `${key}=${filtered[key]}`)
+        .join('&');
+}
+
+function verifyOAuthHmac(query, secret) {
+    const receivedHmac = String(query?.hmac || '');
+    if (!receivedHmac || !secret) return false;
+
+    const message = buildAuthHmacMessage(query);
+    const digest = crypto.createHmac('sha256', secret).update(message, 'utf8').digest('hex');
+
+    const a = Buffer.from(digest, 'utf8');
+    const b = Buffer.from(receivedHmac, 'utf8');
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+function mintOAuthState(shop) {
+    const state = crypto.randomBytes(16).toString('hex');
+    oauthStateStore.set(state, {
+        shop,
+        expiresAt: Date.now() + OAUTH_STATE_TTL_MS,
+    });
+    return state;
+}
+
+function consumeOAuthState(state, shop) {
+    const record = oauthStateStore.get(state);
+    if (!record) return false;
+    oauthStateStore.delete(state);
+
+    if (record.expiresAt < Date.now()) return false;
+    return record.shop === shop;
+}
 
 /**
  * GET /auth
@@ -19,34 +76,15 @@ const WebhookService = require('../services/webhookService');
  */
 router.get('/auth', async (req, res) => {
     try {
-        console.log('========== AUTH REQUEST RECEIVED ==========');
-        console.log('Query params:', req.query);
-        console.log('Headers:', JSON.stringify(req.headers, null, 2));
-
         const { shop } = req.query;
 
-        if (!shop) {
-            console.log('❌ Missing shop parameter');
-            return res.status(400).json({ error: 'Missing shop parameter' });
+        if (!isValidShopDomain(shop)) {
+            return res.status(400).json({ error: 'Invalid or missing shop parameter' });
         }
 
-        // Force re-auth to refresh token if requested
-        // const existing = await Merchant.findOne({ shop, isActive: true });
-        // if (existing) {
-        //     return res.redirect('/app');
-        // }
-
-        console.log('✅ Shop:', shop);
-        console.log('✅ SHOPIFY_API_KEY:', process.env.SHOPIFY_API_KEY);
-        console.log('✅ SHOPIFY_SCOPES:', process.env.SHOPIFY_SCOPES);
-        console.log('✅ SHOPIFY_HOST:', process.env.SHOPIFY_HOST);
-
+        const state = mintOAuthState(shop);
         const redirectUri = `${process.env.SHOPIFY_HOST}/auth/callback`;
-        const authUrl = `https://${shop}/admin/oauth/authorize?client_id=${process.env.SHOPIFY_API_KEY}&scope=${process.env.SHOPIFY_SCOPES}&redirect_uri=${encodeURIComponent(redirectUri)}`;
-
-        console.log('🔗 Redirect URI:', redirectUri);
-        console.log('🔗 Full Auth URL:', authUrl);
-        console.log('============================================');
+        const authUrl = `https://${shop}/admin/oauth/authorize?client_id=${process.env.SHOPIFY_API_KEY}&scope=${process.env.SHOPIFY_SCOPES}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`;
 
         res.redirect(authUrl);
 
@@ -62,16 +100,21 @@ router.get('/auth', async (req, res) => {
  */
 router.get('/auth/callback', async (req, res) => {
     try {
-        const { shop, code } = req.query;
+        const { shop, code, state } = req.query;
 
-        if (!shop || !code) {
+        if (!isValidShopDomain(shop) || !code || !state) {
             return res.status(400).json({ error: 'Missing required parameters' });
         }
 
-        // TODO: Validate HMAC for security
+        if (!consumeOAuthState(String(state), String(shop))) {
+            return res.status(400).json({ error: 'Invalid or expired OAuth state' });
+        }
+
+        if (!verifyOAuthHmac(req.query, process.env.SHOPIFY_API_SECRET)) {
+            return res.status(401).json({ error: 'Invalid OAuth HMAC' });
+        }
 
         // Exchange code for access token
-        const axios = require('axios');
         const tokenResponse = await axios.post(`https://${shop}/admin/oauth/access_token`, {
             client_id: process.env.SHOPIFY_API_KEY,
             client_secret: process.env.SHOPIFY_API_SECRET,
@@ -110,8 +153,9 @@ router.get('/auth/callback', async (req, res) => {
             .then(() => console.log(` Initial sync completed for ${shop}`))
             .catch(err => console.error(`❌ Initial sync failed for ${shop}:`, err.message));
 
-        // Redirect to app dashboard after install
-        res.redirect(`${process.env.SHOPIFY_HOST}/app`);
+        // Redirect to embedded app surface in Shopify Admin.
+        const adminAppUrl = `https://${shop}/admin/apps/${process.env.SHOPIFY_API_KEY}`;
+        res.redirect(adminAppUrl);
 
     } catch (error) {
         console.error('Callback error:', error);
