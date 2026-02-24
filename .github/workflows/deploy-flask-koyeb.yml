@@ -35,6 +35,7 @@ jobs:
           git-builder: buildpack
           git-workdir: "Flask Project"
           git-branch: ${{ github.ref_name }}
+          git-sha: ${{ github.sha }}
           git-build-command: "pip install -r requirements.txt"
           git-run-command: "gunicorn --bind 0.0.0.0:5001 api.app:app"
           service-env: "FLASK_HOST=0.0.0.0,FLASK_PORT=5001,FLASK_DEBUG=false"
