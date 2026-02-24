@@ -53,12 +53,21 @@ def create_app() -> Flask:
     # Initialize model loader and recommender
     @app.before_request
     def initialize_on_first_request():
-        """Initialize model loader on first request."""
-        if not hasattr(app, '_initialized'):
+        """
+        Lazily initialize model components for API traffic only.
+
+        Keep health endpoints lightweight so platform health checks do not
+        block on loading FAISS/model artifacts during provisioning.
+        """
+        if request.path.startswith("/health"):
+            return None
+
+        if not hasattr(app, "_model_init_attempted"):
             logger.info("Initializing model loader...")
             model_loader = get_model_loader()
-            model_loader.initialize()
-            app._initialized = True
+            app._model_init_attempted = True
+            app._model_loaded = bool(model_loader.initialize())
+        return None
     
     # Request timing decorator
     def timed_request(f):
@@ -117,6 +126,15 @@ def create_app() -> Flask:
             "status": "healthy",
             "model_loaded": model_loader.is_available,
             "products": model_loader.num_products,
+            "timestamp": time.time()
+        }), 200
+
+    @app.route("/health/live", methods=["GET"])
+    @timed_request
+    def health_live():
+        """Liveness endpoint that never initializes model artifacts."""
+        return jsonify({
+            "status": "alive",
             "timestamp": time.time()
         }), 200
     

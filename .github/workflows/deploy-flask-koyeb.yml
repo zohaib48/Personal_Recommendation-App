@@ -31,7 +31,7 @@ jobs:
           service-regions: was
           service-ports: "5001:http"
           service-routes: "/:5001"
-          service-checks: "5001:http:/health"
+          service-checks: "5001:http:/health/live"
           git-builder: buildpack
           git-workdir: "Flask Project"
           git-branch: ${{ github.ref_name }}
