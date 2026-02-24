@@ -29,6 +29,7 @@ const errorHandler = require('./middleware/errorHandler');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const ADMIN_PORT = process.env.ADMIN_PORT || 3001;
+const ADMIN_HOST = process.env.ADMIN_HOST || "127.0.0.1";
 
 // =============================================================================
 // MIDDLEWARE
@@ -63,7 +64,7 @@ const adminPaths = [
 ];
 
 const adminProxy = createProxyMiddleware({
-    target: `http://localhost:${ADMIN_PORT}`,
+    target: `http://${ADMIN_HOST}:${ADMIN_PORT}`,
     changeOrigin: false,
     ws: true,
     logLevel: 'warn',
@@ -72,11 +73,12 @@ const adminProxy = createProxyMiddleware({
     pathRewrite: (path) => path, // no rewrite
     on: {
         error: (err, req, res) => {
-            console.error(`❌ Admin proxy error for ${req.method} ${req.url}:`, err.message);
+            const detail = err?.message || err?.code || "unknown proxy failure";
+            console.error(`❌ Admin proxy error for ${req.method} ${req.url}:`, detail);
             if (!res.headersSent) {
                 res.status(502).json({
                     error: 'Admin UI proxy error',
-                    message: err.message,
+                    message: detail,
                 });
             }
         },
