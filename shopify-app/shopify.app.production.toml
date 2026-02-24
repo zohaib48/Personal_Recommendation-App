@@ -8,6 +8,18 @@ embedded = true
 [webhooks]
 api_version = "2026-01"
 
+[[webhooks.subscriptions]]
+compliance_topics = ["customers/data_request"]
+uri = "/webhooks/customers/data_request"
+
+[[webhooks.subscriptions]]
+compliance_topics = ["customers/redact"]
+uri = "/webhooks/customers/redact"
+
+[[webhooks.subscriptions]]
+compliance_topics = ["shop/redact"]
+uri = "/webhooks/shop/redact"
+
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
 scopes = "read_orders,read_products,write_products,write_app_proxy"
@@ -21,5 +33,5 @@ redirect_urls = [
 
 [app_proxy]
 url = "https://shopify-recommender-express-production.up.railway.app"
-subpath = "recommendations"
+subpath = "recommendations-prod"
 prefix = "apps"

@@ -15,6 +15,7 @@ import { json } from "@remix-run/node";
 import { useLoaderData, useLocation } from "@remix-run/react";
 import { config } from "../lib/config.server";
 import { fetchJson } from "../lib/ml-api.server";
+import { withShopifySessionTokenHeaders } from "../lib/session-token.client";
 
 
 
@@ -231,9 +232,10 @@ export default function SettingsPage() {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 8000);
       try {
+        const authHeaders = await withShopifySessionTokenHeaders({ "Content-Type": "application/json" });
         const resp = await fetch("/api/settings", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: authHeaders,
           body: JSON.stringify({ shop, ...payload }),
           signal: controller.signal,
         });

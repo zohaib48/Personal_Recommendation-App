@@ -6,6 +6,12 @@
 
   var TRANSPARENT_GIF =
     "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
+  var DEFAULT_API_BASE_CANDIDATES = [
+    "/apps/recommendations-prod",
+    "/apps/recommendations",
+    "/apps/recommendations-local",
+  ];
+  var API_BASE_CACHE_PREFIX = "ai_rec_api_base_v2:";
 
   function toNumber(value, fallback) {
     var num = parseInt(value, 10);
@@ -22,6 +28,148 @@
       }
     });
     return query.length ? url + "?" + query.join("&") : url;
+  }
+
+  function normalizeBasePath(path) {
+    var raw = String(path || "").trim();
+    if (!raw) return "";
+    if (raw.charAt(0) !== "/") raw = "/" + raw;
+    return raw.replace(/\/+$/, "");
+  }
+
+  function parseApiBaseCandidates(raw) {
+    if (!raw || typeof raw !== "string") return [];
+    return raw
+      .split(",")
+      .map(function (item) { return normalizeBasePath(item); })
+      .filter(Boolean);
+  }
+
+  function getCandidateApiBases(config) {
+    var explicit = normalizeBasePath(config.apiBase);
+    if (explicit && explicit !== "/auto") {
+      return [explicit];
+    }
+
+    var combined = []
+      .concat(parseApiBaseCandidates(config.apiCandidates || ""))
+      .concat(DEFAULT_API_BASE_CANDIDATES)
+      .map(normalizeBasePath)
+      .filter(Boolean);
+
+    var unique = [];
+    combined.forEach(function (base) {
+      if (unique.indexOf(base) === -1) unique.push(base);
+    });
+    return unique;
+  }
+
+  function getApiBaseCacheKey(merchant) {
+    var shop = String(merchant || (window.Shopify && window.Shopify.shop) || "default").trim().toLowerCase();
+    return API_BASE_CACHE_PREFIX + shop;
+  }
+
+  function getCachedApiBase(merchant) {
+    try {
+      return normalizeBasePath(localStorage.getItem(getApiBaseCacheKey(merchant)) || "");
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function setCachedApiBase(merchant, base) {
+    var normalized = normalizeBasePath(base);
+    if (!normalized) return;
+    try {
+      localStorage.setItem(getApiBaseCacheKey(merchant), normalized);
+    } catch (e) { }
+  }
+
+  function probeApiBase(base, merchant, timeoutMs) {
+    var probeUrl = buildUrl(base, "/api/popular", { shop: merchant, k: 1 });
+    var timeout = timeoutMs || 2500;
+
+    if (window.fetch) {
+      var controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+      var timer = controller ? setTimeout(function () { controller.abort(); }, timeout) : null;
+      return fetch(probeUrl, {
+        method: "GET",
+        credentials: "same-origin",
+        signal: controller ? controller.signal : undefined,
+      })
+        .then(function (response) {
+          // 404 usually means proxy path mismatch; anything else proves this path reaches our app.
+          return response && response.status !== 404;
+        })
+        .catch(function () { return false; })
+        .finally(function () {
+          if (timer) clearTimeout(timer);
+        });
+    }
+
+    return new Promise(function (resolve) {
+      var xhr = new XMLHttpRequest();
+      xhr.open("GET", probeUrl, true);
+      xhr.timeout = timeout;
+      xhr.onreadystatechange = function () {
+        if (xhr.readyState !== 4) return;
+        resolve(xhr.status !== 404 && xhr.status !== 0);
+      };
+      xhr.onerror = function () { resolve(false); };
+      xhr.ontimeout = function () { resolve(false); };
+      xhr.send(null);
+    });
+  }
+
+  function resolveApiBase(config) {
+    var candidates = getCandidateApiBases(config);
+    if (!candidates.length || !config.merchant) {
+      return Promise.resolve("");
+    }
+
+    if (candidates.length === 1) {
+      setCachedApiBase(config.merchant, candidates[0]);
+      return Promise.resolve(candidates[0]);
+    }
+
+    var cached = getCachedApiBase(config.merchant);
+    if (cached && candidates.indexOf(cached) !== -1) {
+      return Promise.resolve(cached);
+    }
+
+    window.__AI_RECS_API_BASE_PROMISES__ = window.__AI_RECS_API_BASE_PROMISES__ || {};
+    var promiseKey = getApiBaseCacheKey(config.merchant);
+    if (window.__AI_RECS_API_BASE_PROMISES__[promiseKey]) {
+      return window.__AI_RECS_API_BASE_PROMISES__[promiseKey];
+    }
+
+    window.__AI_RECS_API_BASE_PROMISES__[promiseKey] = new Promise(function (resolve) {
+      var index = 0;
+      function next() {
+        if (index >= candidates.length) {
+          resolve(candidates[0]);
+          return;
+        }
+
+        var candidate = candidates[index];
+        index += 1;
+        probeApiBase(candidate, config.merchant, 2500)
+          .then(function (ok) {
+            if (ok) {
+              setCachedApiBase(config.merchant, candidate);
+              resolve(candidate);
+              return;
+            }
+            next();
+          })
+          .catch(next);
+      }
+      next();
+    }).finally(function () {
+      delete window.__AI_RECS_API_BASE_PROMISES__[promiseKey];
+    });
+
+    return window.__AI_RECS_API_BASE_PROMISES__[promiseKey];
   }
 
   function request(url, options, timeoutMs) {
@@ -199,7 +347,8 @@
     root.setAttribute("data-ai-recommendations", "");
     root.setAttribute("data-ai-auto-drawer", "true");
 
-    root.dataset.apiBase = configEl.dataset.apiBase || "/apps/recommendations";
+    root.dataset.apiBase = configEl.dataset.apiBase || "auto";
+    root.dataset.apiCandidates = configEl.dataset.apiCandidates || "";
     root.dataset.merchant = configEl.dataset.merchant || "";
     root.dataset.customerId = configEl.dataset.customerId || "";
     root.dataset.geoLocation = configEl.dataset.geoLocation || "";
@@ -823,7 +972,10 @@
         root.dataset.apiBase ||
         root.dataset.apiUrl ||
         (window.AIRecommendationsConfig ? window.AIRecommendationsConfig.apiBase : "") ||
-        "/apps/recommendations",
+        "auto",
+      apiCandidates:
+        root.dataset.apiCandidates ||
+        (window.AIRecommendationsConfig ? window.AIRecommendationsConfig.apiCandidates : ""),
       merchant: root.dataset.merchant || "",
       productId: root.dataset.productId || "",
       customerId: effectiveCustomerId,
@@ -839,7 +991,7 @@
       cartProductIds: getConfiguredCartProductIds(root),
     };
 
-    if (!config.apiBase || !config.merchant) {
+    if (!config.merchant) {
       return;
     }
 
@@ -852,87 +1004,96 @@
       return;
     }
 
-    // Track current product view for history
-    if (config.productId) {
-      addToHistory(config.productId);
-      trackEvent(config, {
-        event_type: "view",
-        merchant_id: config.merchant,
-        customer_id: config.customerId,
-        product_id: config.productId,
-        timestamp: new Date().toISOString()
-      });
-    }
-
-    var history = getHistory();
-    var historyStr = history.length ? JSON.stringify(history) : "";
-
-
-    // Build cart context from liquid first, then fallback to /cart.js.
-    var cartIdsFromLiquid = Array.isArray(config.cartProductIds) ? config.cartProductIds : [];
-    var isHomepageColdStart = config.location === "homepage" && !config.productId && !historyStr && cartIdsFromLiquid.length === 0;
-    if (!isHomepageColdStart) {
-      renderSkeleton(root, config.limit, config.layout);
-    }
-
-    var cartIdsPromise = cartIdsFromLiquid.length
-      ? Promise.resolve(cartIdsFromLiquid)
-      : request("/cart.js", { method: "GET" }).then(normalizeCartItemProductIds).catch(function () { return []; });
-
-    cartIdsPromise
-      .then(function (cartData) {
-        var cartProductIds = Array.isArray(cartData) ? cartData : [];
-        var cartStr = cartProductIds.length ? JSON.stringify(cartProductIds) : "";
-
-        var requestUrl = buildUrl(
-          config.apiBase,
-          (config.productId || historyStr || cartStr) ? "/api/recommend" : "/api/popular",
-          {
-            shop: config.merchant,
-            productId: config.productId || "",
-            customerId: config.customerId,
-            location: config.location,
-            geoLocation: config.geoLocation,
-            preferences: config.preferences,
-            history: historyStr,
-            cart: cartStr,
-            k: config.limit,
-          }
-        );
-
-        console.log("🚀 ~ widget.js ~ requestUrl:", requestUrl)
-
-        return request(requestUrl, { method: "GET" }, 3000);
-      })
-      .then(function (data) {
-        var items = normalizeItems(data);
-        if (!items.length) {
-          throw new Error("No recommendations");
+    resolveApiBase(config)
+      .then(function (resolvedApiBase) {
+        config.apiBase = normalizeBasePath(resolvedApiBase);
+        if (!config.apiBase) {
+          clearWidget(root);
+          return;
         }
 
-        renderRecommendations(root, config, items);
-      })
-      .catch(function (err) {
-        console.warn("Recommendation fetch failed, trying popular:", err.message);
-        var fallbackUrl = buildUrl(config.apiBase, "/api/popular", {
-          shop: config.merchant,
-          customerId: config.customerId,
-          geoLocation: config.geoLocation,
-          preferences: config.preferences,
-          k: config.limit,
-        });
-        request(fallbackUrl, { method: "GET" }, 3000)
+        // Track current product view for history
+        if (config.productId) {
+          addToHistory(config.productId);
+          trackEvent(config, {
+            event_type: "view",
+            merchant_id: config.merchant,
+            customer_id: config.customerId,
+            product_id: config.productId,
+            timestamp: new Date().toISOString()
+          });
+        }
+
+        var history = getHistory();
+        var historyStr = history.length ? JSON.stringify(history) : "";
+
+        // Build cart context from liquid first, then fallback to /cart.js.
+        var cartIdsFromLiquid = Array.isArray(config.cartProductIds) ? config.cartProductIds : [];
+        var isHomepageColdStart = config.location === "homepage" && !config.productId && !historyStr && cartIdsFromLiquid.length === 0;
+        if (!isHomepageColdStart) {
+          renderSkeleton(root, config.limit, config.layout);
+        }
+
+        var cartIdsPromise = cartIdsFromLiquid.length
+          ? Promise.resolve(cartIdsFromLiquid)
+          : request("/cart.js", { method: "GET" }).then(normalizeCartItemProductIds).catch(function () { return []; });
+
+        return cartIdsPromise
+          .then(function (cartData) {
+            var cartProductIds = Array.isArray(cartData) ? cartData : [];
+            var cartStr = cartProductIds.length ? JSON.stringify(cartProductIds) : "";
+
+            var requestUrl = buildUrl(
+              config.apiBase,
+              (config.productId || historyStr || cartStr) ? "/api/recommend" : "/api/popular",
+              {
+                shop: config.merchant,
+                productId: config.productId || "",
+                customerId: config.customerId,
+                location: config.location,
+                geoLocation: config.geoLocation,
+                preferences: config.preferences,
+                history: historyStr,
+                cart: cartStr,
+                k: config.limit,
+              }
+            );
+
+            return request(requestUrl, { method: "GET" }, 3000);
+          })
           .then(function (data) {
             var items = normalizeItems(data);
             if (!items.length) {
-              clearWidget(root);
-              return;
+              throw new Error("No recommendations");
             }
+
             renderRecommendations(root, config, items);
           })
-          .catch(function () {
-            clearWidget(root);
+          .catch(function (err) {
+            console.warn("Recommendation fetch failed, trying popular:", err.message);
+            var fallbackUrl = buildUrl(config.apiBase, "/api/popular", {
+              shop: config.merchant,
+              customerId: config.customerId,
+              geoLocation: config.geoLocation,
+              preferences: config.preferences,
+              k: config.limit,
+            });
+            return request(fallbackUrl, { method: "GET" }, 3000)
+              .then(function (data) {
+                var items = normalizeItems(data);
+                if (!items.length) {
+                  clearWidget(root);
+                  return;
+                }
+                renderRecommendations(root, config, items);
+              })
+              .catch(function () {
+                clearWidget(root);
+              });
           });
+      })
+      .catch(function () {
+        clearWidget(root);
       });
   }
 

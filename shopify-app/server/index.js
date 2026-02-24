@@ -62,7 +62,7 @@ app.use((req, res, next) => {
 // Some storefront proxy setups forward the full `/apps/<subpath>/...` path.
 // Normalize those requests so API handlers remain under `/api/...`.
 app.use((req, res, next) => {
-    const rewritten = req.url.replace(/^\/apps\/recommendations(?:-local)?(?=\/|$)/, '');
+    const rewritten = req.url.replace(/^\/apps\/recommendations(?:-[a-z0-9-]+)?(?=\/|$)/i, '');
     if (rewritten !== req.url) {
         req.url = rewritten || '/';
     }
