@@ -1,15 +1,27 @@
 const { spawn, execSync } = require("child_process");
 const { existsSync } = require("fs");
 const { readFile, writeFile } = require("fs").promises;
-const { join } = require("path");
+const { basename, join } = require("path");
 const net = require("net");
+
+function resolveTomlPath() {
+  const explicit = process.env.SHOPIFY_APP_CONFIG;
+  if (explicit) {
+    return explicit.includes("/") ? explicit : join(__dirname, explicit);
+  }
+
+  const localPath = join(__dirname, "shopify.app.local.toml");
+  if (existsSync(localPath)) return localPath;
+
+  return join(__dirname, "shopify.app.toml");
+}
 
 const CONFIG = {
   nodePort: 3000,
   // 3001 is commonly occupied on Windows dev machines; use a higher default.
   adminPort: 4000,
   flaskPort: 5001,
-  tomlPath: join(__dirname, "shopify.app.toml"),
+  tomlPath: resolveTomlPath(),
   envPath: join(__dirname, ".env"),
   flaskPath: join(__dirname, "..", "Flask Project"),
   urlWaitTimeout: 30000,
@@ -267,6 +279,10 @@ class ShopifyAppLauncher {
   }
 
   async updateToml() {
+    if (!existsSync(CONFIG.tomlPath)) {
+      throw new Error(`Shopify app config not found: ${CONFIG.tomlPath}`);
+    }
+
     let content = await readFile(CONFIG.tomlPath, "utf8");
     content = content
       .split("\n")
@@ -303,7 +319,7 @@ class ShopifyAppLauncher {
     }
 
     await writeFile(CONFIG.tomlPath, content, "utf8");
-    console.log("  updated shopify.app.toml");
+    console.log(`  updated ${basename(CONFIG.tomlPath)}`);
   }
 
   async updateEnv() {
@@ -322,8 +338,15 @@ class ShopifyAppLauncher {
   async deployToShopify() {
     console.log("Deploying to Shopify...\n");
 
+    const deployArgs = ["app", "deploy", "--force"];
+    const configFile = basename(CONFIG.tomlPath);
+    if (configFile !== "shopify.app.toml") {
+      deployArgs.push("--config", configFile);
+      console.log(`Using Shopify config: ${configFile}`);
+    }
+
     return new Promise((resolve) => {
-      const deploy = spawn("shopify", ["app", "deploy", "--force"], {
+      const deploy = spawn("shopify", deployArgs, {
         stdio: "inherit",
         shell: true,
       });

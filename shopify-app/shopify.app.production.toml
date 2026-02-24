@@ -1,0 +1,25 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "8337e765a961649245862b50b57b31ce"
+name = "Personal-Ai-Recommendation"
+application_url = "https://shopify-recommender-express-production.up.railway.app"
+embedded = false
+
+[webhooks]
+api_version = "2026-01"
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = ""
+optional_scopes = [ ]
+use_legacy_install_flow = false
+
+[auth]
+redirect_urls = [
+  "https://shopify-recommender-express-production.up.railway.app/auth"
+]
+
+[app_proxy]
+url = "https://shopify-recommender-express-production.up.railway.app"
+subpath = "recommendations"
+prefix = "apps"

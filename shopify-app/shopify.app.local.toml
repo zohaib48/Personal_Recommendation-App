@@ -2,7 +2,7 @@
 
 client_id = "74e041d2a01b8fd48c18e1f1b0b2f920"
 name = "AI Recommendations"
-application_url = "https://shopify-recommender-express-production.up.railway.app"
+application_url = "https://plastic-keyword-springs-seconds.trycloudflare.com"
 
 embedded = false
 
@@ -16,7 +16,7 @@ optional_scopes = []
 use_legacy_install_flow = false
 
 [auth]
-redirect_urls = [ "https://shopify-recommender-express-production.up.railway.app/auth/callback" ]
+redirect_urls = [ "https://plastic-keyword-springs-seconds.trycloudflare.com/auth/callback" ]
 
 [webhooks]
 api_version = "2024-01"
@@ -25,7 +25,7 @@ api_version = "2024-01"
 embedded = false
 
 [app_proxy]
-url = "https://shopify-recommender-express-production.up.railway.app"
+url = "https://plastic-keyword-springs-seconds.trycloudflare.com"
 subpath = "recommendations"
 prefix = "apps"
 
