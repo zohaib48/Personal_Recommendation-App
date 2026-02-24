@@ -11,7 +11,7 @@
         "dev": "nodemon server/index.js",
         "dev:admin": "remix dev",
         "build:admin": "remix build",
-        "start:admin": "remix-serve build",
+        "start:admin": "remix-serve build/index.js",
         "test": "vitest run tests/unit tests/integration",
         "test:watch": "vitest",
         "test:e2e": "playwright test tests/e2e",
